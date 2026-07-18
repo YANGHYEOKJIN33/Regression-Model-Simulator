@@ -5,30 +5,46 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>데이터과학 회귀모델 시뮬레이터</title>
     
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- html2canvas (이미지 캡처용) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-    <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
 
     <style>
-        /* 커스텀 스크롤바/슬라이더 스타일 등 필요 시 추가 */
         .fade-in { animation: fadeIn 0.5s ease-in-out; }
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(-5px); }
             to { opacity: 1; transform: translateY(0); }
         }
+        /* 로딩 스피너 애니메이션 */
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #4f46e5;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body class="min-h-screen bg-gray-50 p-4 md:p-8 font-sans text-slate-800">
 
-    <!-- 캡처될 영역 -->
-    <div id="capture-area" class="max-w-6xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden">
+    <script>
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz9NBSSE4ZS3kKjHQpyKwIG1ygyp9L2QT30slZtKw1DQBkYwFiMQeNXH8ga3Nj3Y8Bc/exec"; 
+    </script>
+
+    <div id="loading-modal" class="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 hidden backdrop-blur-sm transition-opacity">
+        <div class="bg-white p-6 rounded-2xl flex flex-col items-center shadow-2xl">
+            <div class="loader mb-4"></div>
+            <p id="loading-text" class="text-lg font-bold text-slate-700">결과를 전송하고 있습니다...</p>
+            <p class="text-sm text-slate-500 mt-1">창을 닫지 말고 잠시만 기다려주세요.</p>
+        </div>
+    </div>
+
+    <div id="capture-area" class="max-w-6xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden relative">
         
-        <!-- 헤더 -->
         <div class="bg-indigo-600 text-white p-6">
             <div class="flex items-center justify-between">
                 <div>
@@ -47,10 +63,8 @@
 
         <div class="p-6 grid grid-cols-1 lg:grid-cols-3 gap-8">
             
-            <!-- 왼쪽: 컨트롤 패널 -->
             <div class="lg:col-span-1 space-y-6">
                 
-                <!-- 1. 데이터 선택 -->
                 <div class="bg-slate-50 p-5 rounded-xl border border-slate-200">
                     <h2 class="text-lg font-bold mb-4 flex items-center gap-2 text-slate-700">
                         <i data-lucide="target" class="w-5 h-5"></i> 1. 분석 데이터 선택
@@ -70,7 +84,6 @@
                     </div>
                 </div>
 
-                <!-- 2. 수동 조작 (통계적 모델) -->
                 <div class="bg-blue-50 p-5 rounded-xl border border-blue-200 shadow-sm">
                     <h2 class="text-lg font-bold mb-4 flex items-center gap-2 text-blue-800">
                         <i data-lucide="calculator" class="w-5 h-5"></i> 2. 통계적 회귀선 찾기 (수동)
@@ -105,7 +118,6 @@
                     </div>
                 </div>
 
-                <!-- 3. 기계학습 모델 적용 -->
                 <div id="ml-container" class="p-5 rounded-xl border transition-all duration-500 bg-slate-50 border-slate-200">
                     <h2 id="ml-title" class="text-lg font-bold mb-4 flex items-center gap-2 text-slate-700">
                         <i data-lucide="brain-circuit" class="w-5 h-5"></i> 3. 기계학습 모델 적용
@@ -136,10 +148,8 @@
                 </div>
             </div>
 
-            <!-- 오른쪽: 그래프 및 결과 비교 -->
             <div class="lg:col-span-2 flex flex-col">
                 
-                <!-- SVG 그래프 (오버레이) -->
                 <div class="bg-white border border-slate-200 rounded-xl shadow-inner relative flex-grow min-h-[400px]">
                     <div class="absolute top-4 left-6 z-10 font-bold text-slate-700 text-lg bg-white/80 px-2 py-1 rounded">
                         <span id="chart-title">데이터 이름</span> 
@@ -147,10 +157,8 @@
                     </div>
                     
                     <svg id="svg-canvas" width="100%" height="100%" viewBox="0 0 800 450" class="absolute inset-0 w-full h-full preserve-3d">
-                        <!-- JS에서 동적 렌더링 됨 -->
-                    </svg>
+                        </svg>
 
-                    <!-- 범례 -->
                     <div class="absolute bottom-4 right-6 bg-white/90 p-3 rounded-lg border border-slate-200 shadow-sm text-sm">
                         <div class="flex items-center gap-2 mb-2">
                             <div class="w-4 h-4 rounded-full bg-slate-700"></div>
@@ -167,7 +175,6 @@
                     </div>
                 </div>
 
-                <!-- 수식 비교 패널 -->
                 <div class="mt-4 grid grid-cols-2 gap-4">
                     <div class="bg-blue-50/50 p-4 rounded-xl border border-blue-100 flex items-center justify-between">
                         <div>
@@ -196,7 +203,6 @@
             </div>
         </div>
 
-        <!-- 하단: 산출물 작성 공간 -->
         <div class="border-t border-slate-200 bg-slate-50 p-6 md:p-8">
             <h2 class="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
                 <i data-lucide="check-circle-2" class="w-6 h-6 text-green-600"></i> 탐구 결과 및 성찰 일지
@@ -205,28 +211,26 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div class="space-y-2">
                     <label class="block text-sm font-bold text-slate-700">📝 모둠별 회귀모델 비교표 (해석 가능성 vs 예측 성능)</label>
-                    <textarea class="w-full h-32 p-3 rounded-lg border border-slate-300 focus:ring-2 focus:ring-indigo-500 outline-none resize-none" placeholder="나의 모델(통계)과 AI 모델(기계학습)의 공통점과 차이점을 적어보세요."></textarea>
+                    <textarea id="report-comparison" class="w-full h-32 p-3 rounded-lg border border-slate-300 focus:ring-2 focus:ring-indigo-500 outline-none resize-none" placeholder="나의 모델(통계)과 AI 모델(기계학습)의 공통점과 차이점을 적어보세요."></textarea>
                 </div>
                 
                 <div class="space-y-2">
                     <label class="block text-sm font-bold text-slate-700">💡 개인 학습 성찰 일지</label>
-                    <textarea class="w-full h-32 p-3 rounded-lg border border-slate-300 focus:ring-2 focus:ring-indigo-500 outline-none resize-none" placeholder="데이터로 미래를 예측할 때 주의할 점이나 오늘 배운 점을 적어보세요."></textarea>
+                    <textarea id="report-reflection" class="w-full h-32 p-3 rounded-lg border border-slate-300 focus:ring-2 focus:ring-indigo-500 outline-none resize-none" placeholder="데이터로 미래를 예측할 때 주의할 점이나 오늘 배운 점을 적어보세요."></textarea>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- 캡처 버튼 (캡처 영역 밖) -->
-    <div class="max-w-6xl mx-auto mt-6 text-center pb-10">
-        <button id="btn-capture" class="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-full shadow-lg transition-transform hover:scale-105">
-            <i data-lucide="download" class="w-5 h-5"></i> 결과 보고서 이미지로 저장하기
+    <div class="max-w-6xl mx-auto mt-6 pb-10 flex flex-col md:flex-row items-center justify-center gap-4">
+        <button id="btn-capture" class="inline-flex items-center gap-2 px-6 py-3 bg-slate-600 hover:bg-slate-700 text-white font-bold rounded-full shadow-md transition-transform hover:scale-105">
+            <i data-lucide="download" class="w-5 h-5"></i> 결과 보고서 이미지 저장
         </button>
-        <p class="text-sm text-slate-500 mt-3">
-            작성한 그래프와 성찰 일지가 한 장의 이미지로 캡처되어 다운로드됩니다.
-        </p>
+        <button id="btn-submit" class="inline-flex items-center gap-2 px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-full shadow-lg transition-transform hover:scale-105">
+            <i data-lucide="send" class="w-5 h-5"></i> 선생님께 결과 제출하기
+        </button>
     </div>
 
-    <!-- 앱 로직 -->
     <script>
         // 아이콘 초기화
         lucide.createIcons();
@@ -284,20 +288,16 @@
             legendML: document.getElementById('legend-ml'),
             
             manualR2Pct: document.getElementById('manual-r2-pct'),
-            manualR2Val: document.getElementById('manual-r2-val'),
-            mlAbVal: document.getElementById('ml-ab-val'),
             mlR2Pct: document.getElementById('ml-r2-pct'),
-            mlR2Val: document.getElementById('ml-r2-val'),
             
-            eqManual: document.getElementById('eq-manual'),
-            eqManualR2: document.getElementById('eq-manual-r2'),
-            eqMlContainer: document.getElementById('eq-ml-container'),
-            eqMlLabel: document.getElementById('eq-ml-label'),
-            eqMl: document.getElementById('eq-ml'),
-            eqMlR2: document.getElementById('eq-ml-r2'),
+            reportComparison: document.getElementById('report-comparison'),
+            reportReflection: document.getElementById('report-reflection'),
 
             btnCapture: document.getElementById('btn-capture'),
-            captureArea: document.getElementById('capture-area')
+            btnSubmit: document.getElementById('btn-submit'),
+            captureArea: document.getElementById('capture-area'),
+            
+            loadingModal: document.getElementById('loading-modal')
         };
 
         // 2. 핵심 수학 로직
@@ -341,7 +341,6 @@
             const maxX = Math.max(...data.map(d => d.x)) * 1.2;
             const maxY = Math.max(...data.map(d => d.y)) * 1.2;
 
-            // 슬라이더 범위 초기화 및 설정
             if (resetSliders) {
                 state.manualA = 0;
                 state.manualB = mlModel.yMean;
@@ -360,23 +359,19 @@
             els.sliderB.step = maxPossibleB / 200;
             els.sliderB.value = state.manualB;
 
-            // 값 텍스트 업데이트
             els.valA.innerText = state.manualA.toFixed(2);
             els.valB.innerText = state.manualB.toFixed(2);
             els.chartTitle.innerText = name;
             els.chartAxes.innerText = `${xLabel} - ${yLabel}`;
 
-            // R2 계산
             const manualR2 = calculateR2(state.manualA, state.manualB, data, mlModel.yMean);
             const mlR2 = calculateR2(mlModel.a, mlModel.b, data, mlModel.yMean);
 
-            // 통계적(수동) 패널 텍스트
             els.manualR2Pct.innerText = (manualR2 * 100).toFixed(1) + '%';
-            els.manualR2Val.innerText = `(${manualR2.toFixed(4)})`;
-            els.eqManual.innerHTML = `<span class="italic">y</span> = ${state.manualA.toFixed(2)}<span class="italic">x</span> ${state.manualB >= 0 ? '+' : '-'} ${Math.abs(state.manualB).toFixed(2)}`;
-            els.eqManualR2.innerText = (manualR2 * 100).toFixed(1) + '%';
+            document.getElementById('manual-r2-val').innerText = `(${manualR2.toFixed(4)})`;
+            document.getElementById('eq-manual').innerHTML = `<span class="italic">y</span> = ${state.manualA.toFixed(2)}<span class="italic">x</span> ${state.manualB >= 0 ? '+' : '-'} ${Math.abs(state.manualB).toFixed(2)}`;
+            document.getElementById('eq-manual-r2').innerText = (manualR2 * 100).toFixed(1) + '%';
 
-            // ML 패널 텍스트 및 UI 전환
             if (state.showML) {
                 els.btnShowML.classList.add('hidden');
                 els.mlResults.classList.remove('hidden');
@@ -386,17 +381,17 @@
                 els.legendML.classList.remove('hidden');
                 els.legendML.classList.add('flex');
 
-                els.eqMlContainer.classList.remove('bg-slate-50', 'border-slate-100', 'opacity-50');
-                els.eqMlContainer.classList.add('bg-red-50/50', 'border-red-100', 'opacity-100');
-                els.eqMlLabel.classList.replace('text-slate-400', 'text-red-600');
-                els.eqMl.classList.replace('text-slate-400', 'text-slate-800');
-                els.eqMlR2.classList.replace('text-slate-400', 'text-red-700');
+                document.getElementById('eq-ml-container').classList.remove('bg-slate-50', 'border-slate-100', 'opacity-50');
+                document.getElementById('eq-ml-container').classList.add('bg-red-50/50', 'border-red-100', 'opacity-100');
+                document.getElementById('eq-ml-label').classList.replace('text-slate-400', 'text-red-600');
+                document.getElementById('eq-ml').classList.replace('text-slate-400', 'text-slate-800');
+                document.getElementById('eq-ml-r2').classList.replace('text-slate-400', 'text-red-700');
 
-                els.mlAbVal.innerText = `a = ${mlModel.a.toFixed(2)}, b = ${mlModel.b.toFixed(2)}`;
+                document.getElementById('ml-ab-val').innerText = `a = ${mlModel.a.toFixed(2)}, b = ${mlModel.b.toFixed(2)}`;
                 els.mlR2Pct.innerText = (mlR2 * 100).toFixed(1) + '%';
-                els.mlR2Val.innerText = `(${mlR2.toFixed(4)})`;
-                els.eqMl.innerHTML = `<span class="italic">y</span> = ${mlModel.a.toFixed(2)}<span class="italic">x</span> ${mlModel.b >= 0 ? '+' : '-'} ${Math.abs(mlModel.b).toFixed(2)}`;
-                els.eqMlR2.innerText = (mlR2 * 100).toFixed(1) + '%';
+                document.getElementById('ml-r2-val').innerText = `(${mlR2.toFixed(4)})`;
+                document.getElementById('eq-ml').innerHTML = `<span class="italic">y</span> = ${mlModel.a.toFixed(2)}<span class="italic">x</span> ${mlModel.b >= 0 ? '+' : '-'} ${Math.abs(mlModel.b).toFixed(2)}`;
+                document.getElementById('eq-ml-r2').innerText = (mlR2 * 100).toFixed(1) + '%';
             } else {
                 els.btnShowML.classList.remove('hidden');
                 els.mlResults.classList.add('hidden');
@@ -406,34 +401,30 @@
                 els.legendML.classList.add('hidden');
                 els.legendML.classList.remove('flex');
 
-                els.eqMlContainer.classList.add('bg-slate-50', 'border-slate-100', 'opacity-50');
-                els.eqMlContainer.classList.remove('bg-red-50/50', 'border-red-100', 'opacity-100');
-                els.eqMlLabel.classList.replace('text-red-600', 'text-slate-400');
-                els.eqMl.classList.replace('text-slate-800', 'text-slate-400');
-                els.eqMlR2.classList.replace('text-red-700', 'text-slate-400');
+                document.getElementById('eq-ml-container').classList.add('bg-slate-50', 'border-slate-100', 'opacity-50');
+                document.getElementById('eq-ml-container').classList.remove('bg-red-50/50', 'border-red-100', 'opacity-100');
+                document.getElementById('eq-ml-label').classList.replace('text-red-600', 'text-slate-400');
+                document.getElementById('eq-ml').classList.replace('text-slate-800', 'text-slate-400');
+                document.getElementById('eq-ml-r2').classList.replace('text-red-700', 'text-slate-400');
                 
-                els.eqMl.innerText = 'AI 모델 미적용';
-                els.eqMlR2.innerText = '-';
+                document.getElementById('eq-ml').innerText = 'AI 모델 미적용';
+                document.getElementById('eq-ml-r2').innerText = '-';
             }
 
             // SVG 렌더링
             const svgWidth = 800;
             const svgHeight = 450;
             const padding = 50;
-            
             const mapX = (x) => padding + (x / maxX) * (svgWidth - padding * 2);
             const mapY = (y) => svgHeight - padding - (y / maxY) * (svgHeight - padding * 2);
 
             let svgHTML = `
-                <!-- 배경 축 및 그리드 -->
                 <line x1="${padding}" y1="${svgHeight - padding}" x2="${svgWidth - padding}" y2="${svgHeight - padding}" stroke="#cbd5e1" stroke-width="2" />
                 <line x1="${padding}" y1="${padding}" x2="${padding}" y2="${svgHeight - padding}" stroke="#cbd5e1" stroke-width="2" />
-                
                 <text x="${svgWidth - padding + 10}" y="${svgHeight - padding + 5}" font-size="12" fill="#64748b">${xLabel}</text>
                 <text x="${padding}" y="${padding - 15}" font-size="12" fill="#64748b" text-anchor="middle">${yLabel}</text>
             `;
 
-            // 그리드 라인
             [0.2, 0.4, 0.6, 0.8].forEach(ratio => {
                 svgHTML += `
                     <line x1="${padding}" y1="${mapY(maxY * ratio)}" x2="${svgWidth - padding}" y2="${mapY(maxY * ratio)}" stroke="#f1f5f9" stroke-width="1" />
@@ -443,37 +434,76 @@
                 `;
             });
 
-            // 잔차 (점선)
             data.forEach(point => {
                 const predictedY = state.manualA * point.x + state.manualB;
-                svgHTML += `
-                    <line x1="${mapX(point.x)}" y1="${mapY(point.y)}" x2="${mapX(point.x)}" y2="${mapY(predictedY)}" stroke="#93c5fd" stroke-width="2" stroke-dasharray="4,4" opacity="0.6" />
-                `;
+                svgHTML += `<line x1="${mapX(point.x)}" y1="${mapY(point.y)}" x2="${mapX(point.x)}" y2="${mapY(predictedY)}" stroke="#93c5fd" stroke-width="2" stroke-dasharray="4,4" opacity="0.6" />`;
             });
 
-            // ML 회귀선 (선택적)
             if (state.showML) {
-                svgHTML += `
-                    <line x1="${mapX(0)}" y1="${mapY(mlModel.b)}" x2="${mapX(maxX)}" y2="${mapY(mlModel.a * maxX + mlModel.b)}" stroke="#ef4444" stroke-width="4" stroke-dasharray="8,6" opacity="0.8" />
-                `;
+                svgHTML += `<line x1="${mapX(0)}" y1="${mapY(mlModel.b)}" x2="${mapX(maxX)}" y2="${mapY(mlModel.a * maxX + mlModel.b)}" stroke="#ef4444" stroke-width="4" stroke-dasharray="8,6" opacity="0.8" />`;
             }
 
-            // 수동 회귀선
-            svgHTML += `
-                <line x1="${mapX(0)}" y1="${mapY(state.manualB)}" x2="${mapX(maxX)}" y2="${mapY(state.manualA * maxX + state.manualB)}" stroke="#2563eb" stroke-width="3" />
-            `;
+            svgHTML += `<line x1="${mapX(0)}" y1="${mapY(state.manualB)}" x2="${mapX(maxX)}" y2="${mapY(state.manualA * maxX + state.manualB)}" stroke="#2563eb" stroke-width="3" />`;
 
-            // 산점도 (데이터 포인트)
             data.forEach(point => {
-                svgHTML += `
-                    <circle cx="${mapX(point.x)}" cy="${mapY(point.y)}" r="6" fill="#334155" stroke="white" stroke-width="2" />
-                `;
+                svgHTML += `<circle cx="${mapX(point.x)}" cy="${mapY(point.y)}" r="6" fill="#334155" stroke="white" stroke-width="2" />`;
             });
 
             els.svg.innerHTML = svgHTML;
         }
 
-        // 4. 이벤트 리스너 등록
+        // 4. 구글 시트 연동 로직 (데이터 제출)
+        function showLoading() {
+            els.loadingModal.classList.remove('hidden');
+        }
+        function hideLoading() {
+            els.loadingModal.classList.add('hidden');
+        }
+
+        async function submitDataToSheet() {
+            if (SCRIPT_URL === "여기에_구글_웹앱_URL을_붙여넣으세요") {
+                alert("HTML 파일 내 SCRIPT_URL에 구글 웹앱 배포 주소를 먼저 입력해주세요!");
+                return;
+            }
+            
+            if (!els.reportComparison.value.trim() || !els.reportReflection.value.trim()) {
+                alert("모둠별 비교표와 개인 학습 성찰 일지를 모두 작성해주세요.");
+                return;
+            }
+
+            const payload = {
+                dataset: els.chartTitle.innerText,
+                manualR2: els.manualR2Pct.innerText,
+                mlR2: state.showML ? els.mlR2Pct.innerText : '미적용',
+                comparison: els.reportComparison.value,
+                reflection: els.reportReflection.value
+            };
+
+            showLoading();
+
+            try {
+                // CORS 우회를 위해 Content-Type: text/plain 사용
+                const response = await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain' },
+                    body: JSON.stringify(payload)
+                });
+                
+                const result = await response.json();
+                if (result.status === "success") {
+                    alert("탐구 결과가 선생님께 성공적으로 제출되었습니다!");
+                } else {
+                    throw new Error("서버 응답 오류");
+                }
+            } catch (error) {
+                console.error(error);
+                alert("전송 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // 5. 이벤트 리스너 등록
         els.select.addEventListener('change', (e) => {
             state.datasetKey = e.target.value;
             state.customData = null;
@@ -491,15 +521,13 @@
                 const parsedData = [];
                 
                 lines.forEach((line, i) => {
-                    if (i === 0 && isNaN(Number(line.split(',')[0]))) return; // 헤더 무시
+                    if (i === 0 && isNaN(Number(line.split(',')[0]))) return;
                     if (!line.trim()) return;
                     const parts = line.split(',');
                     if (parts.length >= 2) {
                         const x = Number(parts[0]);
                         const y = Number(parts[1]);
-                        if (!isNaN(x) && !isNaN(y)) {
-                            parsedData.push({ x, y });
-                        }
+                        if (!isNaN(x) && !isNaN(y)) parsedData.push({ x, y });
                     }
                 });
                 
@@ -510,7 +538,6 @@
                         yLabel: 'Y 값',
                         data: parsedData
                     };
-                    // 옵션 추가
                     let customOpt = document.getElementById('opt-custom');
                     if(!customOpt) {
                         customOpt = document.createElement('option');
@@ -528,29 +555,16 @@
             reader.readAsText(file);
         });
 
-        els.sliderA.addEventListener('input', (e) => {
-            state.manualA = parseFloat(e.target.value);
-            updateUI();
-        });
+        els.sliderA.addEventListener('input', (e) => { state.manualA = parseFloat(e.target.value); updateUI(); });
+        els.sliderB.addEventListener('input', (e) => { state.manualB = parseFloat(e.target.value); updateUI(); });
+        
+        els.btnShowML.addEventListener('click', () => { state.showML = true; updateUI(); });
+        els.btnHideML.addEventListener('click', () => { state.showML = false; updateUI(); });
 
-        els.sliderB.addEventListener('input', (e) => {
-            state.manualB = parseFloat(e.target.value);
-            updateUI();
-        });
-
-        els.btnShowML.addEventListener('click', () => {
-            state.showML = true;
-            updateUI();
-        });
-
-        els.btnHideML.addEventListener('click', () => {
-            state.showML = false;
-            updateUI();
-        });
+        els.btnSubmit.addEventListener('click', submitDataToSheet);
 
         els.btnCapture.addEventListener('click', async () => {
             try {
-                // html2canvas가 텍스트 영역 값을 제대로 캡처하도록 설정
                 const textareas = els.captureArea.querySelectorAll('textarea');
                 textareas.forEach(ta => { ta.innerHTML = ta.value; });
 
