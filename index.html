@@ -45,7 +45,7 @@
 
     <!-- ✅ 여기에 구글 Apps Script에서 발급받은 웹앱 URL을 입력하세요 -->
     <script>
-        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxjLXiatoNRa7QNKPJVYUFC_80YmdEdqoqdB3GjLCCZ1otQgILmDk4qN3jPZmz8ek84/exec"; 
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxXEhiuBbZNYgCJnMXsvnbMW0RwGLquVlu7GPUvAEsnm0EwCBgKrUY8g__Z_OyJWkX1/exec"; 
     </script>
 
     <!-- 사용자 지정 알림 모달 (alert 대체용) -->
@@ -537,7 +537,7 @@
         function showLoading() { els.loadingModal.classList.remove('hidden'); }
         function hideLoading() { els.loadingModal.classList.add('hidden'); }
 
-        // Gemini AI 피드백 요청 (구글 Apps Script 경유하여 API KEY 숨김 처리)
+        // Gemini AI 피드백 요청 (GET 방식으로 우회)
         async function requestAIFeedback() {
             if (SCRIPT_URL === "여기에_구글_웹앱_URL을_붙여넣으세요") {
                 showAlert("HTML 파일 내 SCRIPT_URL에 구글 웹앱 배포 주소를 먼저 입력해주세요!", "error");
@@ -545,7 +545,7 @@
             }
 
             const payload = {
-                action: "getAIFeedback", // 백엔드(Code.gs)에서 처리 분기용
+                action: "getAIFeedback",
                 dataset: els.chartTitle.innerText,
                 manualR2: els.manualR2Pct.innerText,
                 mlR2: state.showML ? els.mlR2Pct.innerText : '아직 확인 안함',
@@ -553,7 +553,6 @@
                 reflection: els.reportReflection.value.trim() || '아직 작성되지 않음'
             };
 
-            // UI를 로딩 상태로 변경
             els.aiFeedbackContent.innerHTML = `
                 <div class="flex items-center gap-3 text-indigo-600 font-medium">
                     <div class="loader-small"></div>
@@ -564,17 +563,16 @@
             els.btnAiFeedback.classList.add('opacity-50', 'cursor-not-allowed');
 
             try {
-                // 구글 Apps Script로 POST 요청 (CORS 우회용 text/plain)
-                const response = await fetch(SCRIPT_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'text/plain' },
-                    body: JSON.stringify(payload)
+                // 💡 POST 대신 GET 방식으로 데이터를 URL에 인코딩하여 전송 (리디렉션 문제 완벽 해결)
+                const urlWithParams = SCRIPT_URL + "?payload=" + encodeURIComponent(JSON.stringify(payload));
+                
+                const response = await fetch(urlWithParams, {
+                    method: 'GET'
                 });
 
                 const result = await response.json();
                 
                 if (result.status === "success") {
-                    // 마크다운 형식의 줄바꿈을 HTML로 변환
                     const formattedText = result.feedback.replace(/\n/g, '<br>');
                     els.aiFeedbackContent.innerHTML = `
                         <div class="text-indigo-900 leading-relaxed">
@@ -583,11 +581,11 @@
                         </div>
                     `;
                 } else {
-                    throw new Error(result.message || "서버 응답 오류");
+                    throw new Error(result.message || "알 수 없는 서버 응답 오류");
                 }
             } catch (error) {
                 console.error("AI 피드백 오류:", error);
-                els.aiFeedbackContent.innerHTML = '<span class="text-red-500 font-medium"><i data-lucide="alert-circle" class="inline w-4 h-4 mr-1"></i> 분석 중 오류가 발생했습니다. (API 설정 등을 확인해주세요)</span>';
+                els.aiFeedbackContent.innerHTML = `<span class="text-red-500 font-medium"><i data-lucide="alert-circle" class="inline w-4 h-4 mr-1"></i> 서버 통신 실패: ${error.message}</span>`;
             } finally {
                 lucide.createIcons();
                 els.btnAiFeedback.disabled = false;
@@ -607,7 +605,7 @@
             }
 
             const payload = {
-                action: "submit", // 백엔드(Code.gs)에서 시트에 데이터 저장 분기용
+                action: "submit",
                 dataset: els.chartTitle.innerText,
                 manualR2: els.manualR2Pct.innerText,
                 mlR2: state.showML ? els.mlR2Pct.innerText : '미적용',
@@ -618,21 +616,22 @@
             showLoading();
 
             try {
-                const response = await fetch(SCRIPT_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'text/plain' },
-                    body: JSON.stringify(payload)
+                // 💡 GET 방식으로 전송
+                const urlWithParams = SCRIPT_URL + "?payload=" + encodeURIComponent(JSON.stringify(payload));
+                
+                const response = await fetch(urlWithParams, {
+                    method: 'GET'
                 });
                 
                 const result = await response.json();
                 if (result.status === "success") {
                     showAlert("탐구 결과가 선생님께 성공적으로 제출되었습니다!", "success");
                 } else {
-                    throw new Error("서버 응답 오류");
+                    throw new Error(result.message || "서버 응답 오류");
                 }
             } catch (error) {
                 console.error(error);
-                showAlert("전송 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.", "error");
+                showAlert(`전송 중 오류가 발생했습니다. (${error.message})`, "error");
             } finally {
                 hideLoading();
             }
