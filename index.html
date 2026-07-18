@@ -537,41 +537,21 @@
         function showLoading() { els.loadingModal.classList.remove('hidden'); }
         function hideLoading() { els.loadingModal.classList.add('hidden'); }
 
-        // Fetch with exponential backoff (API 호출 안정성 확보)
-        async function fetchWithRetry(url, options, retries = 5) {
-            const delays = [1000, 2000, 4000, 8000, 16000];
-            for (let i = 0; i < retries; i++) {
-                try {
-                    const response = await fetch(url, options);
-                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                    return await response.json();
-                } catch (error) {
-                    if (i === retries - 1) throw error;
-                    await new Promise(res => setTimeout(res, delays[i]));
-                }
-            }
-        }
-
-        // Gemini AI 피드백 요청
+        // Gemini AI 피드백 요청 (구글 Apps Script 경유하여 API KEY 숨김 처리)
         async function requestAIFeedback() {
-            const apiKey = ""; // API 키는 실행 환경에서 자동 할당됩니다.
-            
-            const datasetName = els.chartTitle.innerText;
-            const manualR2 = els.manualR2Pct.innerText;
-            const mlR2 = state.showML ? els.mlR2Pct.innerText : '아직 확인 안함';
-            const compText = els.reportComparison.value.trim() || '아직 작성되지 않음';
-            const refText = els.reportReflection.value.trim() || '아직 작성되지 않음';
-
-            const systemPrompt = "너는 고등학교 데이터과학 수업을 돕는 친절하고 똑똑한 AI 튜터야. 학생이 설정한 회귀선의 설명력(R²)과 기계학습(AI)이 찾은 최적의 설명력을 비교하고, 학생이 작성한 비교표 및 성찰 일지를 분석해줘. 학생의 노력을 칭찬하고, 놓친 부분이나 더 발전시킬 수 있는 점을 3~4문장으로 짧고 다정하게 존댓말로 피드백해줘. 결과값의 의미(결정계수가 1에 가까울수록 좋음)를 힌트로 주면 좋아.";
-
-            const userQuery = `현재 실습 데이터: ${datasetName}\n학생의 수동 모델 설명력(R²): ${manualR2}\nAI 최적화 모델 설명력(R²): ${mlR2}\n학생이 작성한 비교표: ${compText}\n학생이 작성한 성찰 일지: ${refText}\n이 내용을 바탕으로 나에게 피드백을 해줘.`;
+            if (SCRIPT_URL === "여기에_구글_웹앱_URL을_붙여넣으세요") {
+                showAlert("HTML 파일 내 SCRIPT_URL에 구글 웹앱 배포 주소를 먼저 입력해주세요!", "error");
+                return;
+            }
 
             const payload = {
-                contents: [{ parts: [{ text: userQuery }] }],
-                systemInstruction: { parts: [{ text: systemPrompt }] }
+                action: "getAIFeedback", // 백엔드(Code.gs)에서 처리 분기용
+                dataset: els.chartTitle.innerText,
+                manualR2: els.manualR2Pct.innerText,
+                mlR2: state.showML ? els.mlR2Pct.innerText : '아직 확인 안함',
+                comparison: els.reportComparison.value.trim() || '아직 작성되지 않음',
+                reflection: els.reportReflection.value.trim() || '아직 작성되지 않음'
             };
-
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
 
             // UI를 로딩 상태로 변경
             els.aiFeedbackContent.innerHTML = `
@@ -584,26 +564,30 @@
             els.btnAiFeedback.classList.add('opacity-50', 'cursor-not-allowed');
 
             try {
-                const result = await fetchWithRetry(url, {
+                // 구글 Apps Script로 POST 요청 (CORS 우회용 text/plain)
+                const response = await fetch(SCRIPT_URL, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'text/plain' },
                     body: JSON.stringify(payload)
                 });
 
-                const aiText = result.candidates?.[0]?.content?.parts?.[0]?.text || "피드백을 생성하지 못했습니다.";
+                const result = await response.json();
                 
-                // 마크다운 형식의 줄바꿈을 HTML로 변환
-                const formattedText = aiText.replace(/\n/g, '<br>');
-
-                els.aiFeedbackContent.innerHTML = `
-                    <div class="text-indigo-900 leading-relaxed">
-                        <i data-lucide="sparkles" class="inline w-4 h-4 text-amber-500 mr-1"></i>
-                        ${formattedText}
-                    </div>
-                `;
+                if (result.status === "success") {
+                    // 마크다운 형식의 줄바꿈을 HTML로 변환
+                    const formattedText = result.feedback.replace(/\n/g, '<br>');
+                    els.aiFeedbackContent.innerHTML = `
+                        <div class="text-indigo-900 leading-relaxed">
+                            <i data-lucide="sparkles" class="inline w-4 h-4 text-amber-500 mr-1"></i>
+                            ${formattedText}
+                        </div>
+                    `;
+                } else {
+                    throw new Error(result.message || "서버 응답 오류");
+                }
             } catch (error) {
                 console.error("AI 피드백 오류:", error);
-                els.aiFeedbackContent.innerHTML = '<span class="text-red-500 font-medium"><i data-lucide="alert-circle" class="inline w-4 h-4 mr-1"></i> AI 서버 통신에 실패했습니다. 잠시 후 다시 시도해주세요.</span>';
+                els.aiFeedbackContent.innerHTML = '<span class="text-red-500 font-medium"><i data-lucide="alert-circle" class="inline w-4 h-4 mr-1"></i> 분석 중 오류가 발생했습니다. (API 설정 등을 확인해주세요)</span>';
             } finally {
                 lucide.createIcons();
                 els.btnAiFeedback.disabled = false;
@@ -623,6 +607,7 @@
             }
 
             const payload = {
+                action: "submit", // 백엔드(Code.gs)에서 시트에 데이터 저장 분기용
                 dataset: els.chartTitle.innerText,
                 manualR2: els.manualR2Pct.innerText,
                 mlR2: state.showML ? els.mlR2Pct.innerText : '미적용',
